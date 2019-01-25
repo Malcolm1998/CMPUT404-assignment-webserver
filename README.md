@@ -25,3 +25,6 @@ examples thus some of the code is Copyright © 2001-2013 Python
 Software Foundation; All Rights Reserved under the PSF license (GPL
 compatible) http://docs.python.org/2/library/socketserver.html
 
+Notes
+========================
+Firefox will run this webserver slower than chrome

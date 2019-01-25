@@ -60,10 +60,15 @@ class MyWebServer(socketserver.BaseRequestHandler):
                 html = "301 Moved Permanently"
                 response += html
             else:
-                response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
-                html = open(local_path+"/index.html").read()
-                html = self.add_directory_names(local_path, path, html)
-                response += html
+                try:
+                    response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
+                    html = open(local_path+"/index.html").read()
+                    html = self.add_directory_names(local_path, path, html)
+                    response += html
+                except FileNotFoundError:
+                    response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\ncharset=UTF-8\r\n\r\n"
+                    html = "404 Not Found\nindex.html not found"
+                    response += html
         else:
             file_contents = self.get_file_contents(local_path)
             if file_contents is not None:

@@ -29,44 +29,43 @@ import os
 
 
 class MyWebServer(socketserver.BaseRequestHandler):
-    
-    def handle(self):
-        #TODO show files
-        self.request.settimeout(1)
 
+    # handles the request
+    def handle(self):
+        # noinspection PyAttributeOutsideInit
         self.data = self.request.recv(1024).strip().decode("utf-8")
+
+        # print("Got a request of: %s\n" % self.data)
+        if self.data == "":
+            return
+
         http_command = self.data.split(" ")[0]
         path = self.data.split(" ")[1]
-
-        #if path == "/../../../../../../../../../../../../etc/group":
-        #    print("testing")
-
-        print("Got a request of: %s\n" % self.data)
 
         response = self.get_response(path, http_command)
 
         self.request.sendall(bytearray(response, 'utf-8'))
 
+    # returns the appropriate response given the path and http command
     def get_response(self, path, http_command):
+        local_path = "./www" + path
         if http_command != "GET":
             response = "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
-        elif path == "/":
-            response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
-            html = open("./www/index.html").read()
-            html = self.add_file_names("./www", html)
+            html = "405 Method Not Allowed"
             response += html
-        elif path == "/deep/":
-            response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
-            html = open("./www/deep/index.html").read()
-            html = self.add_file_names("./www/deep", html)
-            response += html
-        elif path == "/deep":
-            response = "HTTP/1.1 301 Moved Permanently\r\nContent-Type: text/plain\r\ncharset=UTF-8\r\n" \
-                       "Connection: keep-alive\r\nLocation: http://localhost:8080/deep/\r\n\r\n"
-            html = "301 Moved Permanently"
-            response += html
+        elif os.path.isdir(local_path):
+            if local_path[-1] != "/":
+                response = "HTTP/1.1 301 Moved Permanently\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n" \
+                           "Location:" + path + "/\r\n\r\n"
+                html = "301 Moved Permanently"
+                response += html
+            else:
+                response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\ncharset=UTF-8\r\n\r\n"
+                html = open(local_path+"/index.html").read()
+                html = self.add_directory_names(local_path, path, html)
+                response += html
         else:
-            file_contents = self.get_file_contents(path)
+            file_contents = self.get_file_contents(local_path)
             if file_contents is not None:
                 file_type = path.split(".")[-1]
                 response = "HTTP/1.1 200 OK\r\nContent-Type: text/"+file_type+"\r\ncharset=UTF-8\r\n\r\n"
@@ -77,32 +76,37 @@ class MyWebServer(socketserver.BaseRequestHandler):
                 response += html
         return response
 
+    # adds the list of folders, html files and css files to the main html as clickable links
     @staticmethod
-    def add_file_names(folder_path, html):
+    def add_directory_names(local_path, path, html):
         split_html = html.split("</ul>")
-        file_names = os.listdir(folder_path)
+        file_names = os.listdir(local_path)
 
         for file_name in file_names:
-            if os.path.isdir(folder_path + "/" + file_name):
-                continue
-            split_html[0] += "<li><a href="+file_name+">"+file_name+"</a></li>\n"
+            if os.path.isdir(local_path+"/"+file_name):
+                split_html[0] += "<li><a href="+path+file_name+"/>"+file_name+"</a></li>\n"
+
+        for file_name in file_names:
+            if os.path.isfile(local_path+"/"+file_name):
+                split_html[0] += "<li><a href="+path+file_name+">"+file_name+"</a></li>\n"
+
         return "".join(split_html)
 
+    # This loads a files' contents, if it exits, or it returns None
     @staticmethod
-    def get_file_contents(path):
-        path_sections = path.split("/")[:-1]
+    def get_file_contents(local_path):
+        path_sections = local_path.split("/")
         for path_section in path_sections:
             if path_section == "..":
                 return None
 
-        folder_path = "./www"+path
-
         try:
-            return open(folder_path, "r").read()
+            return open(local_path, "r").read()
         except FileNotFoundError:
             return None
         except NotADirectoryError:
             return None
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
